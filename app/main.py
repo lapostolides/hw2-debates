@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
@@ -12,7 +12,6 @@ from app.routers.leaderboard import router as leaderboard_router
 from app.routers.rounds import router as rounds_router
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-SKILL_MD = os.path.join(os.path.dirname(__file__), "..", "SKILL.md")
 
 
 @asynccontextmanager
@@ -49,4 +48,7 @@ def root():
 
 @app.get("/SKILL.md", include_in_schema=False)
 def skill():
-    return FileResponse(os.path.abspath(SKILL_MD), media_type="text/plain")
+    skill_path = os.path.join(os.path.dirname(__file__), "..", "SKILL.md")
+    with open(os.path.abspath(skill_path)) as f:
+        content = f.read()
+    return PlainTextResponse(content)
