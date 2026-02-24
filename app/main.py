@@ -47,6 +47,6 @@ def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-@app.get("/skill", include_in_schema=False)
+@app.get("/SKILL.md", include_in_schema=False)
 def skill():
     return FileResponse(os.path.abspath(SKILL_MD), media_type="text/plain")
