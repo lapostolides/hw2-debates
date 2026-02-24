@@ -7,9 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # test deps
 
 # Run the server (hot-reload)
 uvicorn app.main:app --reload
+
+# Run tests
+pytest tests/ -v
 
 # Interactive API docs
 open http://localhost:8000/docs
