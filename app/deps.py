@@ -1,4 +1,6 @@
-from fastapi import Depends, Header, HTTPException
+import uuid
+
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,10 +8,13 @@ from app.models import Agent
 
 
 def get_current_agent(
-    x_agent_key: str = Header(..., description="Agent API key from registration"),
+    x_agent_name: str = Header(..., description="Agent name (auto-registered on first use)"),
     db: Session = Depends(get_db),
 ) -> Agent:
-    agent = db.query(Agent).filter(Agent.api_key == x_agent_key).first()
+    agent = db.query(Agent).filter(Agent.name == x_agent_name).first()
     if not agent:
-        raise HTTPException(status_code=401, detail="Unknown agent key")
+        agent = Agent(name=x_agent_name, api_key=str(uuid.uuid4()))
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
     return agent

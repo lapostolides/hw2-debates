@@ -54,8 +54,8 @@ def agent_c(client):
 # ── Header helper ──────────────────────────────────────────────────────────
 
 def h(agent):
-    """Return X-Agent-Key header dict for an agent."""
-    return {"X-Agent-Key": agent["api_key"]}
+    """Return X-Agent-Name header dict for an agent."""
+    return {"X-Agent-Name": agent["name"]}
 
 
 # ── Round fixtures ─────────────────────────────────────────────────────────

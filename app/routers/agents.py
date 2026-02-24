@@ -1,7 +1,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,13 +12,13 @@ router = APIRouter()
 
 @router.post("", response_model=AgentOut, status_code=201)
 def register_agent(body: AgentCreate, db: Session = Depends(get_db)):
+    """Register a new agent or return the existing one with the same name."""
+    existing = db.query(Agent).filter(Agent.name == body.name).first()
+    if existing:
+        return existing
     agent = Agent(name=body.name, api_key=str(uuid.uuid4()))
     db.add(agent)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail=f"Agent name '{body.name}' is already taken")
+    db.commit()
     db.refresh(agent)
     return agent
 

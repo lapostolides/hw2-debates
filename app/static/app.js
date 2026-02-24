@@ -2,7 +2,7 @@
 
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
-  agent: null,        // { id, name, api_key }
+  agent: null,        // { id, name }
   rounds: [],
   activeRound: null,  // full RoundState from GET /rounds/{id}
   leaderboard: null,
@@ -16,7 +16,7 @@ const POLL_INTERVAL = 5000;
 // ── API helper ─────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if (state.agent) headers['X-Agent-Key'] = state.agent.api_key;
+  if (state.agent) headers['X-Agent-Name'] = state.agent.name;
 
   const res = await fetch(path, {
     method,
@@ -106,7 +106,7 @@ function renderAgentHeader() {
       <div class="agent-chip">
         <span class="dot"></span>
         <span>${esc(state.agent.name)}</span>
-        <button id="logout-btn" title="Forget this key">✕</button>
+        <button id="logout-btn" title="Switch agent">✕</button>
       </div>`;
     document.getElementById('logout-btn').addEventListener('click', () => {
       forgetAgent();
@@ -303,7 +303,6 @@ function renderActionPanel(rs) {
     }
 
   } else if (r.phase === 'critique') {
-    // Proposals this agent hasn't critiqued (and doesn't own)
     const critiqued = new Set(
       rs.critiques.filter(c => c.agent_id === state.agent.id).map(c => c.proposal_id)
     );
@@ -466,7 +465,7 @@ async function handleRegister() {
   btn.disabled = true;
   try {
     const agent = await api('POST', '/agents', { name });
-    saveAgent({ id: agent.id, name: agent.name, api_key: agent.api_key });
+    saveAgent({ id: agent.id, name: agent.name });
     renderAgentHeader();
     await loadRounds();
     await loadLeaderboard();
@@ -474,33 +473,6 @@ async function handleRegister() {
     toast(`Welcome, ${agent.name}!`, 'success');
   } catch (e) {
     showError(errEl, e.message);
-    btn.disabled = false;
-  }
-}
-
-async function handleImportKey() {
-  const key = document.getElementById('import-key').value.trim();
-  const name = document.getElementById('import-name').value.trim();
-  const errEl = document.getElementById('import-error');
-  const btn = document.getElementById('import-btn');
-  if (!key || !name) return showError(errEl, 'Both name and key are required.');
-
-  btn.disabled = true;
-  // Validate key works by temporarily setting it
-  const prev = state.agent;
-  state.agent = { id: 0, name, api_key: key };
-  try {
-    // Try fetching rounds with this key to verify it works
-    await api('GET', '/rounds');
-    saveAgent({ id: 0, name, api_key: key });
-    renderAgentHeader();
-    await loadRounds();
-    await loadLeaderboard();
-    showPanel('rounds-panel');
-    toast(`Logged in as ${name}`, 'success');
-  } catch (e) {
-    state.agent = prev;
-    showError(errEl, 'Could not verify key. Check that your name and key are correct.');
     btn.disabled = false;
   }
 }
@@ -554,7 +526,6 @@ function showError(el, msg) {
 
 function agentName(agentId) {
   if (state.agent && state.agent.id === agentId) return state.agent.name;
-  // Try to find in active round data
   if (state.activeRound) {
     const fromProposal = state.activeRound.proposals.find(p => p.agent_id === agentId);
     if (fromProposal) return fromProposal.agent_name;
@@ -569,7 +540,6 @@ async function init() {
   loadAgentFromStorage();
   renderAgentHeader();
 
-  // Wire up persistent buttons
   document.getElementById('back-btn').addEventListener('click', () => {
     stopPolling();
     state.activeRound = null;
@@ -590,7 +560,6 @@ async function init() {
   document.getElementById('create-round-btn').addEventListener('click', handleCreateRound);
   document.getElementById('advance-btn').addEventListener('click', handleAdvance);
   document.getElementById('reg-btn').addEventListener('click', handleRegister);
-  document.getElementById('import-btn').addEventListener('click', handleImportKey);
 
   document.getElementById('reg-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleRegister();

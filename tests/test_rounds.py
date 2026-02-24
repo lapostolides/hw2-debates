@@ -16,9 +16,10 @@ def test_create_round_requires_auth(client):
     assert r.status_code == 422  # missing header
 
 
-def test_create_round_invalid_key(client):
-    r = client.post("/rounds", json={"prompt": "Test"}, headers={"X-Agent-Key": "bad-key"})
-    assert r.status_code == 401
+def test_create_round_unknown_name_auto_creates(client):
+    """Any agent name is accepted and auto-registered on first use."""
+    r = client.post("/rounds", json={"prompt": "Test"}, headers={"X-Agent-Name": "newcomer"})
+    assert r.status_code == 201
 
 
 def test_create_round_empty_prompt(client, agent_a):

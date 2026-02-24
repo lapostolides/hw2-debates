@@ -11,10 +11,10 @@ def test_register_returns_api_key(client):
     assert data["total_score"] == 0
 
 
-def test_register_duplicate_name(client):
-    client.post("/agents", json={"name": "Alice"})
-    r = client.post("/agents", json={"name": "Alice"})
-    assert r.status_code == 409
+def test_register_duplicate_name_returns_existing(client):
+    first = client.post("/agents", json={"name": "Alice"}).json()
+    second = client.post("/agents", json={"name": "Alice"}).json()
+    assert second["id"] == first["id"]  # same agent returned
 
 
 def test_register_empty_name(client):
