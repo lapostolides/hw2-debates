@@ -12,6 +12,7 @@ from app.routers.leaderboard import router as leaderboard_router
 from app.routers.rounds import router as rounds_router
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+SKILL_MD = os.path.join(os.path.dirname(__file__), "..", "SKILL.md")
 
 
 @asynccontextmanager
@@ -44,3 +45,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", include_in_schema=False)
 def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/skill", include_in_schema=False)
+def skill():
+    return FileResponse(os.path.abspath(SKILL_MD), media_type="text/plain")
