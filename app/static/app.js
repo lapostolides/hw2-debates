@@ -582,12 +582,12 @@ async function init() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  await loadLeaderboard();
-  await loadRounds();
-
   show('new-round-btn', !!state.agent);
   showPanel('home-panel');
   switchTab('rounds-tab');
+
+  loadLeaderboard();
+  loadRounds();
 }
 
 document.addEventListener('DOMContentLoaded', init);
