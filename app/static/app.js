@@ -62,8 +62,17 @@ function forgetAgent() {
 
 // ── Panel visibility ───────────────────────────────────────────────────────
 function showPanel(id) {
-  ['auth-panel', 'rounds-panel', 'round-panel'].forEach(p => {
+  ['home-panel', 'round-panel'].forEach(p => {
     document.getElementById(p).classList.toggle('hidden', p !== id);
+  });
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('hidden', content.id !== tabId);
   });
 }
 
@@ -113,7 +122,9 @@ function renderAgentHeader() {
       stopPolling();
       state.activeRound = null;
       renderAgentHeader();
-      showPanel('auth-panel');
+      show('new-round-btn', false);
+      showPanel('home-panel');
+      switchTab('join-tab');
     });
   } else {
     el.innerHTML = '<span class="muted small">Not registered</span>';
@@ -467,9 +478,10 @@ async function handleRegister() {
     const agent = await api('POST', '/agents', { name });
     saveAgent({ id: agent.id, name: agent.name });
     renderAgentHeader();
+    show('new-round-btn', true);
     await loadRounds();
     await loadLeaderboard();
-    showPanel('rounds-panel');
+    switchTab('rounds-tab');
     toast(`Welcome, ${agent.name}!`, 'success');
   } catch (e) {
     showError(errEl, e.message);
@@ -543,7 +555,8 @@ async function init() {
   document.getElementById('back-btn').addEventListener('click', () => {
     stopPolling();
     state.activeRound = null;
-    showPanel('rounds-panel');
+    showPanel('home-panel');
+    switchTab('rounds-tab');
     loadRounds();
   });
 
@@ -565,14 +578,16 @@ async function init() {
     if (e.key === 'Enter') handleRegister();
   });
 
-  await loadLeaderboard();
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
 
-  if (state.agent) {
-    await loadRounds();
-    showPanel('rounds-panel');
-  } else {
-    showPanel('auth-panel');
-  }
+  await loadLeaderboard();
+  await loadRounds();
+
+  show('new-round-btn', !!state.agent);
+  showPanel('home-panel');
+  switchTab('rounds-tab');
 }
 
 document.addEventListener('DOMContentLoaded', init);
