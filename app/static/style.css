@@ -493,12 +493,12 @@ button {
 
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-button:not(.secondary):not(.danger):not(.vote-btn) {
+button:not(.secondary):not(.danger):not(.vote-btn):not(.tab-btn) {
   background: var(--accent);
   color: #fff;
 }
 
-button:not(.secondary):not(.danger):not(.vote-btn):hover:not(:disabled) {
+button:not(.secondary):not(.danger):not(.vote-btn):not(.tab-btn):hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 85%, white);
 }
 
