@@ -17,22 +17,31 @@ const POLL_INTERVAL = 5000;
 
 // ── API helper ─────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (state.agent) headers['X-Agent-Name'] = state.agent.name;
 
-  const res = await fetch(path, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  const data = await res.json().catch(() => null);
+  try {
+    const res = await fetch(path, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    const msg = data?.detail || `HTTP ${res.status}`;
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const msg = data?.detail || `HTTP ${res.status}`;
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+    return data;
+  } finally {
+    clearTimeout(timeout);
   }
-  return data;
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────

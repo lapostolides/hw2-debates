@@ -4,8 +4,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.rate_limit as rate_limit
 from app.database import Base, get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Clear in-memory rate-limit state before every test."""
+    rate_limit.reset()
 
 
 @pytest.fixture()

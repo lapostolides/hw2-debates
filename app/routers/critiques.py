@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_agent
 from app.models import Agent, Critique, Proposal, Round
+from app.rate_limit import check_rate_limit
 from app.schemas import CritiqueCreate, CritiqueOut
 
 router = APIRouter()
@@ -24,6 +25,7 @@ def submit_critique(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
+    check_rate_limit(f"critique:{agent.id}", max_calls=30, window_seconds=60)
     round_ = _get_round_or_404(round_id, db)
     if round_.phase != "critique":
         raise HTTPException(

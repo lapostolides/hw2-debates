@@ -16,6 +16,7 @@ from app.schemas import (
     VoteOut,
 )
 from app.scoring import score_round
+from app.rate_limit import check_rate_limit
 from app.routers.proposals import router as proposals_router
 from app.routers.critiques import router as critiques_router
 from app.routers.votes import router as votes_router
@@ -34,6 +35,7 @@ def create_round(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
+    check_rate_limit(f"create_round:{agent.id}", max_calls=10, window_seconds=60)
     round_ = Round(prompt=body.prompt, created_by=agent.id)
     db.add(round_)
     db.commit()
@@ -74,6 +76,8 @@ def advance_phase(
     round_ = db.get(Round, round_id)
     if not round_:
         raise HTTPException(status_code=404, detail="Round not found")
+
+    check_rate_limit(f"advance:{agent.id}", max_calls=10, window_seconds=60)
 
     previous_phase = round_.phase
 
