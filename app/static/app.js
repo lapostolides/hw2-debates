@@ -8,6 +8,8 @@ const state = {
   leaderboard: null,
   pollTimer: null,
   scoreEvents: [],    // for closed rounds
+  agents: [],
+  activeAgent: null,
 };
 
 const PHASES = ['proposal', 'critique', 'voting', 'closed'];
@@ -62,7 +64,7 @@ function forgetAgent() {
 
 // ── Panel visibility ───────────────────────────────────────────────────────
 function showPanel(id) {
-  ['home-panel', 'round-panel'].forEach(p => {
+  ['home-panel', 'round-panel', 'agent-panel'].forEach(p => {
     document.getElementById(p).classList.toggle('hidden', p !== id);
   });
 }
@@ -547,6 +549,106 @@ function agentName(agentId) {
   return `Agent #${agentId}`;
 }
 
+// ── Agent Directory ────────────────────────────────────────────────────────
+async function loadAgents() {
+  try {
+    state.agents = await api('GET', '/agents');
+    renderAgentsList();
+  } catch (e) {
+    const el = document.getElementById('agents-list');
+    if (el) el.innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  }
+}
+
+function renderAgentsList() {
+  const el = document.getElementById('agents-list');
+  if (!el) return;
+  if (!state.agents || state.agents.length === 0) {
+    el.innerHTML = '<p class="muted">No agents registered yet.</p>';
+    return;
+  }
+  el.innerHTML = state.agents.map(a => {
+    const isMe = state.agent && a.id === state.agent.id;
+    return `
+      <div class="agent-dir-card${isMe ? ' me' : ''}" data-id="${a.id}">
+        <div class="agent-dir-info">
+          <div class="agent-dir-name">${esc(a.name)}${isMe ? ' <span class="muted small">(you)</span>' : ''}</div>
+          <div class="agent-dir-stats">
+            <span>${a.proposals_submitted} proposal${a.proposals_submitted !== 1 ? 's' : ''}</span>
+            <span>${a.critiques_submitted} critique${a.critiques_submitted !== 1 ? 's' : ''}</span>
+            <span>${a.votes_cast} vote${a.votes_cast !== 1 ? 's' : ''}</span>
+            <span>${a.rounds_participated} round${a.rounds_participated !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <span class="agent-dir-score">${a.total_score}pt</span>
+      </div>`;
+  }).join('');
+  el.querySelectorAll('.agent-dir-card').forEach(card => {
+    card.addEventListener('click', () => openAgent(Number(card.dataset.id)));
+  });
+}
+
+async function openAgent(id) {
+  const agent = state.agents.find(a => a.id === id);
+  if (!agent) return;
+  state.activeAgent = agent;
+  stopPolling();
+
+  document.getElementById('agent-panel-title').textContent = agent.name;
+  document.getElementById('agent-panel-score').textContent = `${agent.total_score}pt`;
+  document.getElementById('agent-stat-grid').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-value">${agent.proposals_submitted}</div>
+      <div class="stat-label">Proposals</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">${agent.critiques_submitted}</div>
+      <div class="stat-label">Critiques</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">${agent.votes_cast}</div>
+      <div class="stat-label">Votes</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">${agent.rounds_participated}</div>
+      <div class="stat-label">Rounds</div>
+    </div>`;
+  document.getElementById('agent-activity-feed').innerHTML = '<p class="muted">Loading…</p>';
+  showPanel('agent-panel');
+
+  try {
+    const activity = await api('GET', `/agents/${id}/activity`);
+    renderAgentActivity(activity.recent_events);
+  } catch (e) {
+    document.getElementById('agent-activity-feed').innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  }
+}
+
+function renderAgentActivity(events) {
+  const el = document.getElementById('agent-activity-feed');
+  if (!events || events.length === 0) {
+    el.innerHTML = '<p class="muted">No activity yet.</p>';
+    return;
+  }
+  const ICONS = { proposal: '📝', critique: '💬', vote: '🗳️', score: '⭐' };
+  el.innerHTML = events.map(ev => {
+    let detail = `Round #${ev.round_id}`;
+    if (ev.type === 'score') detail += ` · ${(ev.reason || '').replace('_', ' ')} +${ev.points}pt`;
+    else if (ev.type === 'vote') detail += ` · voted on proposal #${ev.proposal_id}`;
+    else if (ev.type === 'critique') detail += ` · on proposal #${ev.proposal_id}`;
+    return `
+      <div class="activity-item">
+        <span class="activity-icon">${ICONS[ev.type] || '•'}</span>
+        <div class="activity-body">
+          <div class="activity-type ${ev.type}">${ev.type}</div>
+          <div class="activity-detail">${esc(detail)}</div>
+          ${ev.content ? `<div class="activity-content">${esc(ev.content)}${ev.content.length >= 120 ? '…' : ''}</div>` : ''}
+        </div>
+        <span class="activity-time">${fmtDate(ev.at)}</span>
+      </div>`;
+  }).join('');
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 async function init() {
   loadAgentFromStorage();
@@ -558,6 +660,12 @@ async function init() {
     showPanel('home-panel');
     switchTab('rounds-tab');
     loadRounds();
+  });
+
+  document.getElementById('agent-back-btn').addEventListener('click', () => {
+    state.activeAgent = null;
+    showPanel('home-panel');
+    switchTab('agents-tab');
   });
 
   document.getElementById('new-round-btn').addEventListener('click', () => {
@@ -579,7 +687,10 @@ async function init() {
   });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => {
+      switchTab(btn.dataset.tab);
+      if (btn.dataset.tab === 'agents-tab') loadAgents();
+    });
   });
 
   show('new-round-btn', !!state.agent);
@@ -588,6 +699,7 @@ async function init() {
 
   loadLeaderboard();
   loadRounds();
+  loadAgents();
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -208,3 +208,32 @@ class ScoreEventOut(BaseModel):
     reason: str
     points: int
     created_at: datetime
+
+
+# ── Agent directory ───────────────────────────────────────────────────────────
+
+class AgentSummary(BaseModel):
+    id: int
+    name: str
+    total_score: int
+    created_at: datetime
+    proposals_submitted: int
+    critiques_submitted: int
+    votes_cast: int
+    rounds_participated: int
+
+
+class ActivityItem(BaseModel):
+    type: str  # "proposal" | "critique" | "vote" | "score"
+    round_id: int
+    at: datetime
+    content: Optional[str] = None
+    proposal_id: Optional[int] = None
+    reason: Optional[str] = None
+    points: Optional[int] = None
+
+
+class AgentActivityOut(BaseModel):
+    agent_id: int
+    name: str
+    recent_events: List[ActivityItem]
