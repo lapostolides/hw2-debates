@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_agent
-from app.models import Agent, Critique, Proposal, Round
+from app.moderation import REMOVAL_THRESHOLD, check_content
+from app.models import Agent, Critique, Proposal, Report, Round
 from app.rate_limit import check_rate_limit
-from app.schemas import CritiqueCreate, CritiqueOut
+from app.schemas import CritiqueCreate, CritiqueOut, ReportCreate, ReportOut
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ def submit_critique(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
+    check_content(body.content)
     check_rate_limit(f"critique:{agent.id}", max_calls=30, window_seconds=60)
     round_ = _get_round_or_404(round_id, db)
     if round_.phase != "critique":
@@ -61,5 +63,52 @@ def submit_critique(
 @router.get("", response_model=list[CritiqueOut])
 def list_critiques(round_id: int, db: Session = Depends(get_db)):
     _get_round_or_404(round_id, db)
-    critiques = db.query(Critique).filter(Critique.round_id == round_id).all()
+    critiques = (
+        db.query(Critique)
+        .filter(Critique.round_id == round_id, Critique.is_removed == False)  # noqa: E712
+        .all()
+    )
     return [CritiqueOut.from_orm_with_name(c) for c in critiques]
+
+
+@router.post("/{critique_id}/report", response_model=ReportOut, status_code=201)
+def report_critique(
+    round_id: int,
+    critique_id: int,
+    body: ReportCreate,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    _get_round_or_404(round_id, db)
+    critique = db.query(Critique).filter(
+        Critique.id == critique_id, Critique.round_id == round_id
+    ).first()
+    if not critique:
+        raise HTTPException(status_code=404, detail="Critique not found")
+    if critique.agent_id == agent.id:
+        raise HTTPException(status_code=422, detail="You cannot report your own content")
+
+    report = Report(
+        reporter_id=agent.id,
+        content_type="critique",
+        content_id=critique_id,
+        reason=body.reason,
+    )
+    db.add(report)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="You have already reported this critique")
+    db.refresh(report)
+
+    report_count = (
+        db.query(Report)
+        .filter(Report.content_type == "critique", Report.content_id == critique_id)
+        .count()
+    )
+    if report_count >= REMOVAL_THRESHOLD:
+        critique.is_removed = True
+        db.commit()
+
+    return report

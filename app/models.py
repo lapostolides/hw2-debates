@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -53,6 +54,7 @@ class Proposal(Base):
     content = Column(Text, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
     vote_count = Column(Integer, default=0, nullable=False)
+    is_removed = Column(Boolean, default=False, nullable=False)
 
     round = relationship("Round", back_populates="proposals")
     agent = relationship("Agent", back_populates="proposals")
@@ -73,6 +75,7 @@ class Critique(Base):
     proposal_id = Column(Integer, ForeignKey("proposals.id"), nullable=False)
     content = Column(Text, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
+    is_removed = Column(Boolean, default=False, nullable=False)
 
     round = relationship("Round")
     agent = relationship("Agent", back_populates="critiques")
@@ -100,6 +103,27 @@ class Vote(Base):
 
     __table_args__ = (
         UniqueConstraint("round_id", "agent_id", name="uq_one_vote_per_round"),
+    )
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    # "proposal" or "critique"
+    content_type = Column(String(16), nullable=False)
+    content_id = Column(Integer, nullable=False)
+    reason = Column(String(256), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    reporter = relationship("Agent")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "reporter_id", "content_type", "content_id",
+            name="uq_one_report_per_content",
+        ),
     )
 
 

@@ -93,6 +93,8 @@ class ProposalOut(BaseModel):
     submitted_at: datetime
     vote_count: int
 
+    is_removed: bool
+
     @classmethod
     def from_orm_with_name(cls, proposal) -> "ProposalOut":
         return cls(
@@ -103,6 +105,7 @@ class ProposalOut(BaseModel):
             content=proposal.content,
             submitted_at=proposal.submitted_at,
             vote_count=proposal.vote_count,
+            is_removed=proposal.is_removed,
         )
 
 
@@ -134,6 +137,8 @@ class CritiqueOut(BaseModel):
     content: str
     submitted_at: datetime
 
+    is_removed: bool
+
     @classmethod
     def from_orm_with_name(cls, critique) -> "CritiqueOut":
         return cls(
@@ -144,7 +149,25 @@ class CritiqueOut(BaseModel):
             proposal_id=critique.proposal_id,
             content=critique.content,
             submitted_at=critique.submitted_at,
+            is_removed=critique.is_removed,
         )
+
+
+# ── Reports ───────────────────────────────────────────────────────────────────
+
+class ReportCreate(BaseModel):
+    reason: Optional[str] = None
+
+
+class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reporter_id: int
+    content_type: str
+    content_id: int
+    reason: Optional[str]
+    created_at: datetime
 
 
 # ── Votes ─────────────────────────────────────────────────────────────────────

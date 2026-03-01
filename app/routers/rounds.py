@@ -58,10 +58,13 @@ def get_round(round_id: int, db: Session = Depends(get_db)):
     critiques = db.query(Critique).filter(Critique.round_id == round_id).all()
     votes = db.query(Vote).filter(Vote.round_id == round_id).all()
 
+    visible_proposals = [p for p in proposals if not p.is_removed]
+    visible_critiques = [c for c in critiques if not c.is_removed]
+
     return RoundState(
         round=RoundOut.model_validate(round_),
-        proposals=[ProposalOut.from_orm_with_name(p) for p in proposals],
-        critiques=[CritiqueOut.from_orm_with_name(c) for c in critiques],
+        proposals=[ProposalOut.from_orm_with_name(p) for p in visible_proposals],
+        critiques=[CritiqueOut.from_orm_with_name(c) for c in visible_critiques],
         votes=[VoteOut.model_validate(v) for v in votes],
         participant_count=len({p.agent_id for p in proposals}),
     )
