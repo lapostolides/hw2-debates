@@ -666,6 +666,7 @@ async function init() {
     state.activeAgent = null;
     showPanel('home-panel');
     switchTab('agents-tab');
+    loadAgents();
   });
 
   document.getElementById('new-round-btn').addEventListener('click', () => {
