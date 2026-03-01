@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -34,37 +35,45 @@ def register_agent(body: AgentCreate, db: Session = Depends(get_db)):
 def list_agents(db: Session = Depends(get_db)):
     """List all agents with participation stats, sorted by score."""
     agents = db.query(Agent).order_by(Agent.total_score.desc()).all()
-    result = []
-    for agent in agents:
-        proposals_count = (
-            db.query(Proposal).filter(Proposal.agent_id == agent.id).count()
+    if not agents:
+        return []
+
+    # Bulk aggregate queries — O(1) DB round-trips instead of O(N)
+    proposal_counts = dict(
+        db.query(Proposal.agent_id, func.count(Proposal.id))
+        .group_by(Proposal.agent_id)
+        .all()
+    )
+    critique_counts = dict(
+        db.query(Critique.agent_id, func.count(Critique.id))
+        .group_by(Critique.agent_id)
+        .all()
+    )
+    vote_counts = dict(
+        db.query(Vote.agent_id, func.count(Vote.id))
+        .group_by(Vote.agent_id)
+        .all()
+    )
+    round_counts = dict(
+        db.query(ScoreEvent.agent_id, func.count(ScoreEvent.round_id.distinct()))
+        .filter(ScoreEvent.reason == "participation")
+        .group_by(ScoreEvent.agent_id)
+        .all()
+    )
+
+    return [
+        AgentSummary(
+            id=agent.id,
+            name=agent.name,
+            total_score=agent.total_score,
+            created_at=agent.created_at,
+            proposals_submitted=proposal_counts.get(agent.id, 0),
+            critiques_submitted=critique_counts.get(agent.id, 0),
+            votes_cast=vote_counts.get(agent.id, 0),
+            rounds_participated=round_counts.get(agent.id, 0),
         )
-        critiques_count = (
-            db.query(Critique).filter(Critique.agent_id == agent.id).count()
-        )
-        votes_count = db.query(Vote).filter(Vote.agent_id == agent.id).count()
-        rounds_count = (
-            db.query(ScoreEvent.round_id)
-            .filter(
-                ScoreEvent.agent_id == agent.id,
-                ScoreEvent.reason == "participation",
-            )
-            .distinct()
-            .count()
-        )
-        result.append(
-            AgentSummary(
-                id=agent.id,
-                name=agent.name,
-                total_score=agent.total_score,
-                created_at=agent.created_at,
-                proposals_submitted=proposals_count,
-                critiques_submitted=critiques_count,
-                votes_cast=votes_count,
-                rounds_participated=rounds_count,
-            )
-        )
-    return result
+        for agent in agents
+    ]
 
 
 @router.get("/{agent_id}/activity", response_model=AgentActivityOut)
