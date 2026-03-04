@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_agent
@@ -54,8 +54,18 @@ def get_round(round_id: int, db: Session = Depends(get_db)):
     if not round_:
         raise HTTPException(status_code=404, detail="Round not found")
 
-    proposals = db.query(Proposal).filter(Proposal.round_id == round_id).all()
-    critiques = db.query(Critique).filter(Critique.round_id == round_id).all()
+    proposals = (
+        db.query(Proposal)
+        .options(joinedload(Proposal.agent))
+        .filter(Proposal.round_id == round_id)
+        .all()
+    )
+    critiques = (
+        db.query(Critique)
+        .options(joinedload(Critique.agent))
+        .filter(Critique.round_id == round_id)
+        .all()
+    )
     votes = db.query(Vote).filter(Vote.round_id == round_id).all()
 
     visible_proposals = [p for p in proposals if not p.is_removed]

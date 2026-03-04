@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, engine
+from app.database import Base, engine, run_schema_migrations
 from app.routers.agents import router as agents_router
 from app.routers.leaderboard import router as leaderboard_router
 from app.routers.rounds import router as rounds_router
@@ -22,6 +22,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_schema_migrations()
     yield
 
 
@@ -61,6 +62,12 @@ app.include_router(rounds_router, prefix="/rounds", tags=["Rounds"])
 app.include_router(leaderboard_router, prefix="/leaderboard", tags=["Leaderboard"])
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    """Simple health check for load balancers and monitoring."""
+    return {"status": "ok"}
 
 
 @app.get("/", include_in_schema=False)
